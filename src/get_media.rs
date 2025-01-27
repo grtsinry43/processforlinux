@@ -14,6 +14,7 @@ use dbus::blocking::Proxy;
 pub struct MediaMetadata {
     pub title: Option<String>,
     pub artist: Option<String>,
+    pub album_art_url: Option<String>,
 }
 
 
@@ -29,7 +30,9 @@ mod constants {
 mod media {
     pub const TITLE_KEY: &str = "xesam:title";
     pub const ARTIST_KEY: &str = "xesam:artist";
+    pub const ALBUM_ART_URL_KEY: &str = "mpris:artUrl";
 }
+
 
 pub fn get_media_metadata() -> Option<MediaMetadata> {
     for &identifier in &constants::MEDIA_PLAYER_IDENTIFIERS {
@@ -86,8 +89,13 @@ pub fn get_media_metadata() -> Option<MediaMetadata> {
                 None
             };
 
-            if title.is_some() || artist.is_some() {
-                return Some(MediaMetadata { title, artist });
+            let album_art_url = metadata
+                .get(media::ALBUM_ART_URL_KEY)
+                .and_then(|url| url.as_str())
+                .map(String::from);
+
+            if title.is_some() || artist.is_some() || album_art_url.is_some() {
+                return Some(MediaMetadata { title, artist, album_art_url });
             }
         }
     }

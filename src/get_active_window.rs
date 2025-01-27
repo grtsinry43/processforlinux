@@ -12,6 +12,8 @@
 use std::error::Error;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 
 enum WindowTitle {
     Code,
@@ -26,6 +28,11 @@ enum WindowTitle {
     NetEaseMusic,
     iTerm2,
     Typora,
+    IDEA,
+    RustRover,
+    Follow,
+    Spotify,
+    XTerminal,
     None,
 }
 
@@ -44,6 +51,11 @@ impl std::fmt::Display for WindowTitle {
             WindowTitle::NetEaseMusic => write!(f, "NetEaseMusic"),
             WindowTitle::iTerm2 => write!(f, "iTerm2"),
             WindowTitle::Typora => write!(f, "Typora"),
+            WindowTitle::IDEA => write!(f, "IDEA"),
+            WindowTitle::RustRover => write!(f, "RustRover"),
+            WindowTitle::Follow => write!(f, "Follow"),
+            WindowTitle::Spotify => write!(f, "Spotify"),
+            WindowTitle::XTerminal => write!(f, "XTerminal"),
             WindowTitle::None => write!(f, "None"),
         }
     }
@@ -54,6 +66,8 @@ impl WindowTitle {
         match s {
             "code" => WindowTitle::Code,
             "jetbrains-webstorm" => WindowTitle::WebStorm,
+            "jetbrains-idea" => WindowTitle::IDEA,
+            "jetbrains-rustrover" => WindowTitle::RustRover,
             "telegram" => WindowTitle::Telegram, // TODO: Can't get the title of Telegram
             "wechat" => WindowTitle::WeChat,
             "discord" => WindowTitle::Discord, // TODO: Can't test
@@ -69,53 +83,70 @@ impl WindowTitle {
             "yakuake" => WindowTitle::iTerm2, // TODO: Can't get the title of Yakuake
             "konsole" => WindowTitle::iTerm2, // TODO: Can't get the title of Konsole
             "typora" => WindowTitle::Typora,
+            "follow" => WindowTitle::Follow,
+            "spotify" => WindowTitle::Spotify,
+            "xterminal" => WindowTitle::XTerminal,
             _ => WindowTitle::None,
         }
     }
 }
 
 pub fn get_active_window_process_and_title() -> Result<String, Box<dyn Error>> {
-    let xprop_output = Command::new("xprop")
-        .arg("-root")
-        .arg("_NET_ACTIVE_WINDOW")
-        .stdout(Stdio::piped())
-        .spawn()?
-        .stdout
-        .ok_or("Failed to capture xprop stdout")?;
+    let mut failure_count = 0;
 
-    let xprop_reader = BufReader::new(xprop_output);
-    let mut window_id = String::new();
-    for line in xprop_reader.lines() {
-        let line = line?;
-        if line.contains("_NET_ACTIVE_WINDOW(WINDOW)") {
-            window_id = line.split_whitespace().nth(4).unwrap_or("").to_string();
-            break;
+    loop {
+        let xprop_output = Command::new("xprop")
+            .arg("-root")
+            .arg("_NET_ACTIVE_WINDOW")
+            .stdout(Stdio::piped())
+            .spawn()?
+            .stdout
+            .ok_or("Failed to capture xprop stdout")?;
+
+        let xprop_reader = BufReader::new(xprop_output);
+        let mut window_id = String::new();
+        for line in xprop_reader.lines() {
+            let line = line?;
+            if line.contains("_NET_ACTIVE_WINDOW(WINDOW)") {
+                window_id = line.split_whitespace().nth(4).unwrap_or("").to_string();
+                break;
+            }
+        }
+
+        if window_id.is_empty() {
+            failure_count += 1;
+            if failure_count >= 3 {
+                thread::sleep(Duration::from_secs(1));
+                failure_count = 0;
+            }
+            continue;
+        }
+
+        let xprop_output = Command::new("xprop")
+            .arg("-id")
+            .arg(&window_id)
+            .arg("WM_CLASS")
+            .stdout(Stdio::piped())
+            .spawn()?
+            .stdout
+            .ok_or("Failed to capture xprop stdout")?;
+
+        let xprop_reader = BufReader::new(xprop_output);
+        for line in xprop_reader.lines() {
+            let line = line?;
+            if line.contains("WM_CLASS(STRING)") {
+                let class_name = line.split('"').nth(1).unwrap_or("");
+                println!("class_name: {}", class_name);
+                let window_title_enum = WindowTitle::from_string(class_name);
+                return Ok(window_title_enum.to_string());
+            }
+        }
+
+        failure_count += 1;
+        if failure_count >= 3 {
+            thread::sleep(Duration::from_secs(1));
+            println!("It seems that the window is not found or it's not a valid window (Terminal).");
+            failure_count = 0;
         }
     }
-
-    if window_id.is_empty() {
-        return Err("Failed to get active window ID".into());
-    }
-
-    let xprop_output = Command::new("xprop")
-        .arg("-id")
-        .arg(&window_id)
-        .arg("WM_CLASS")
-        .stdout(Stdio::piped())
-        .spawn()?
-        .stdout
-        .ok_or("Failed to capture xprop stdout")?;
-
-    let xprop_reader = BufReader::new(xprop_output);
-    for line in xprop_reader.lines() {
-        let line = line?;
-        if line.contains("WM_CLASS(STRING)") {
-            let class_name = line.split('"').nth(1).unwrap_or("");
-            println!("class_name: {}", class_name);
-            let window_title_enum = WindowTitle::from_string(class_name);
-            return Ok(window_title_enum.to_string());
-        }
-    }
-
-    Err("Failed to get window class".into())
 }

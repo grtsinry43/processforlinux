@@ -54,6 +54,27 @@ async fn run_loop(config: Config) {
             }
         };
 
+        let process_extend = match process_name.as_str() {
+            "Code" => "忍受TS Server",
+            "WebStorm" => "大战前端",
+            "IDEA" => "被Java坑害",
+            "RustRover" => "高效开发，享受编程原神",
+            "Telegram" => "聊天",
+            "WeChat" => "聊天",
+            "Discord" => "聊天",
+            "Mail" => "发邮件",
+            "QQ" => "疯狂水群",
+            "Chrome" => "网上冲浪",
+            "QQ音乐" => "听音乐",
+            "NetEaseMusic" => "听音乐",
+            "iTerm2" => "终端",
+            "Typora" => "水水文章",
+            "Follow" => "阅览天下事",
+            "Spotify" => "激情听歌",
+            "XTerminal" => "苦b运维",
+            _ => "其他",
+        };
+
         let prev_process_name = previous_process_name.clone();
         let prev_media_metadata = previous_media_metadata.clone();
 
@@ -63,8 +84,10 @@ async fn run_loop(config: Config) {
         {
             if let Err(e) = report(
                 &process_name,
+                &process_extend,
                 &media_metadata.title.clone().unwrap_or_default(),
                 &media_metadata.artist.clone().unwrap_or_default(),
+                &media_metadata.album_art_url.clone().unwrap_or_default(),
                 &config,
             )
             .await
@@ -94,14 +117,18 @@ async fn run_loop(config: Config) {
 
 async fn report(
     process_name: &str,
+    process_extend: &str,
     media_title: &str,
     media_artist: &str,
+    media_thumbnail: &str,
     config: &Config,
 ) -> Result<(), Box<dyn Error>> {
     reportprocess::process_report(
         process_name,
+        process_extend,
         media_title,
         media_artist,
+        media_thumbnail,
         &config.api_key,
         &config.api_url,
         config.watch_time,
