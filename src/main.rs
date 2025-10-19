@@ -9,6 +9,7 @@ mod get_active_window;
 mod get_env_file;
 mod get_media;
 mod reportprocess;
+mod status_window;
 
 use chrono::Utc;
 
@@ -16,6 +17,8 @@ use std::process::exit;
 use std::{error::Error, time::Duration};
 use tokio::time::sleep;
 use std::collections::HashMap;
+use std::sync::mpsc;
+use std::thread;
 
 struct Config {
     api_url: String,
@@ -23,6 +26,7 @@ struct Config {
     watch_time: i64,
     media_enable: bool,
     log_enable: bool,
+    gui_enable: bool,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -32,6 +36,7 @@ impl Default for Config {
             watch_time: 5,
             media_enable: true,
             log_enable: true,
+            gui_enable: true, // 默认启用GUI
         }
     }
 }
@@ -82,25 +87,64 @@ fn get_extend_info(process_name: &str) -> String {
     String::new()
 }
 
-async fn run_loop(config: Config) {
+async fn run_loop(config: Config, status_sender: Option<mpsc::Sender<status_window::AppStatus>>) {
     let mut last_time = Utc::now();
     let mut previous_process_name = String::new();
     let mut previous_media_metadata: get_media::MediaMetadata = get_media::MediaMetadata::default();
+
+    // 初始化统计信息
+    let mut stats = status_window::RunningStats {
+        start_time: Utc::now(),
+        success_count: 0,
+        failure_count: 0,
+        total_checks: 0,
+    };
+
     loop {
         let utc_now = Utc::now();
+        let next_check_time = utc_now
+            .checked_add_signed(chrono::Duration::seconds(config.watch_time))
+            .unwrap_or(utc_now);
+
         let media_metadata = if config.media_enable {
             get_media::get_media_metadata().unwrap_or_default()
         } else {
             get_media::MediaMetadata::default()
         };
 
-        let process_name = match get_active_window::get_active_window_process_and_title() {
-            Ok(name) => name,
+        let (process_name, window_status) = match get_active_window::get_active_window_process_and_title() {
+            Ok(name) => {
+                stats.success_count += 1;
+                (name, status_window::WindowStatus::Success)
+            }
             Err(e) => {
+                stats.failure_count += 1;
                 eprintln!("Failed to get active window: {}", e);
-                continue;
+                (String::new(), status_window::WindowStatus::Failed(e.to_string()))
             }
         };
+
+        stats.total_checks += 1;
+
+        // 发送状态更新到GUI
+        if let Some(ref sender) = status_sender {
+            let session_type = get_active_window::detect_session_type();
+            let app_status = status_window::AppStatus {
+                session_type,
+                current_window: process_name.clone(),
+                window_status: window_status.clone(),
+                next_check_time,
+                media_title: media_metadata.title.clone().unwrap_or_default(),
+                media_artist: media_metadata.artist.clone().unwrap_or_default(),
+                media_thumbnail: media_metadata.thumbnail.clone().unwrap_or_default(),
+                stats: stats.clone(),
+                last_error: match &window_status {
+                    status_window::WindowStatus::Failed(err) => Some(err.clone()),
+                    _ => None,
+                },
+            };
+            let _ = sender.send(app_status);
+        }
 
         let prev_process_name = previous_process_name.clone();
         let prev_media_metadata = previous_media_metadata.clone();
@@ -175,13 +219,15 @@ async fn report(
 #[tokio::main]
 async fn main() {
     let mut config = Config::default();
+
     match get_env_file::get_env_file() {
-        Ok((api_url, api_key, watch_time, media_enable, log_enable)) => {
+        Ok((api_url, api_key, watch_time, media_enable, log_enable, gui_enable)) => {
             config.api_url = api_url;
             config.api_key = api_key;
             config.watch_time = watch_time;
             config.media_enable = media_enable;
             config.log_enable = log_enable;
+            config.gui_enable = gui_enable;
         }
         Err(e) => {
             eprintln!("Failed to get env file: {}", e);
@@ -189,5 +235,26 @@ async fn main() {
         }
     };
 
-    run_loop(config).await;
+    if config.gui_enable {
+        // GUI模式：创建channel
+        let (status_sender, status_receiver) = mpsc::channel();
+
+        // 在子线程中运行监控循环
+        thread::spawn(move || {
+            // 创建运行时用于子线程
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                println!("Starting monitor with GUI...");
+                run_loop(config, Some(status_sender)).await;
+            });
+        });
+
+        // 在主线程中启动GUI
+        println!("Launching overlay window...");
+        status_window::run_status_window(status_receiver);
+    } else {
+        // 控制台模式：不使用GUI
+        println!("Starting monitor in console mode...");
+        run_loop(config, None).await;
+    }
 }

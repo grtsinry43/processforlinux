@@ -5,7 +5,7 @@
  * @LastEditTime: 2023-08-14 16:37:28
  * @FilePath: /processforlinux/src/get_env_file.rs
  */
-use clap::{App, Arg};
+use clap::{Command, Arg};
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -68,21 +68,28 @@ fn read_config_values(config_path: &str) -> Result<UserConfig, Box<dyn Error>> {
     })
 }
 
-pub fn get_env_file() -> Result<(String, String, i64, bool, bool), Box<dyn Error>> {
-    let matches = App::new("Process Report For Linux")
+pub fn get_env_file() -> Result<(String, String, i64, bool, bool, bool), Box<dyn Error>> {
+    let matches = Command::new("Process Report For Linux")
         .arg(
-            Arg::with_name("config")
-                .short("c")
+            Arg::new("config")
+                .short('c')
                 .long("config")
                 .value_name("FILE")
-                .takes_value(true)
+                .num_args(1)
                 .default_value(".env.process") // Set default config file path
                 .help("Sets the config file path"),
         )
+        .arg(
+            Arg::new("no-gui")
+                .long("no-gui")
+                .action(clap::ArgAction::SetTrue)
+                .help("Disable GUI mode and use console mode")
+        )
         .get_matches();
 
-    let config_file = matches.value_of("config").unwrap();
+    let config_file = matches.get_one::<String>("config").unwrap();
     let config_path = std::env::current_dir()?.join(config_file);
+    let gui_enable = !matches.get_flag("no-gui"); // 默认启用GUI，除非指定--no-gui
 
     let user_config = read_config_values(config_path.to_str().unwrap())?;
     Ok((
@@ -91,5 +98,6 @@ pub fn get_env_file() -> Result<(String, String, i64, bool, bool), Box<dyn Error
         user_config.watch_time,
         user_config.media_enable,
         user_config.log_enable,
+        gui_enable, // 添加GUI选项
     ))
 }

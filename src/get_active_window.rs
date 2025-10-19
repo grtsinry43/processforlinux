@@ -124,7 +124,7 @@ impl WindowTitle {
 }
 
 /// 检测当前会话类型
-fn detect_session_type() -> String {
+pub fn detect_session_type() -> String {
     // 首先检查 XDG_SESSION_TYPE 环境变量
     if let Ok(session_type) = env::var("XDG_SESSION_TYPE") {
         return session_type;
