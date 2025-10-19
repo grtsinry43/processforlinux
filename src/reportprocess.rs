@@ -20,6 +20,8 @@ pub async fn process_report(
     process_name: &str,
     media_title: &str,
     media_artist: &str,
+    media_thumbnail: &str,
+    extend: &str,
     api_key: &str,
     api_url: &str,
     watch_time: i64,
@@ -29,19 +31,20 @@ pub async fn process_report(
 
     let payload = if media_title == "None" {
         json!({
-            "api_key": api_key,
-            "process_name": process_name,
+            "process": process_name,
             "timestamp": timestamp,
+            "extend": extend,
         })
     } else {
         json!({
             "timestamp": timestamp,
             "process": process_name,
-            "key": api_key,
             "media": {
                 "title": media_title,
                 "artist": media_artist,
+                "thumbnail": media_thumbnail,
             },
+            "extend": extend,
         })
     };
 
@@ -50,19 +53,19 @@ pub async fn process_report(
     let mut headers = header::HeaderMap::new();
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(CONTENT_TYPE));
     headers.insert(header::USER_AGENT, HeaderValue::from_static(USER_AGENT));
+    headers.insert(
+        "Authorization",
+        HeaderValue::from_str(&format!("{}", api_key))?,
+    );
 
-    let response = if process_name == "None" {
-        "None".to_string()
-    } else {
-        client
-            .post(api_url)
-            .headers(headers)
-            .body(json_self::to_string(&payload)?)
-            .send()
-            .await?
-            .text()
-            .await?
-    };
+    let response = client
+        .post(api_url)
+        .headers(headers)
+        .body(json_self::to_string(&payload)?)
+        .send()
+        .await?
+        .text()
+        .await?;
 
     if log_enable {
         let utc_now = Utc::now();

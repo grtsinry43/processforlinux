@@ -14,6 +14,7 @@ use dbus::blocking::Proxy;
 pub struct MediaMetadata {
     pub title: Option<String>,
     pub artist: Option<String>,
+    pub thumbnail: Option<String>,
 }
 
 
@@ -29,6 +30,7 @@ mod constants {
 mod media {
     pub const TITLE_KEY: &str = "xesam:title";
     pub const ARTIST_KEY: &str = "xesam:artist";
+    pub const ART_URL_KEY: &str = "mpris:artUrl";
 }
 
 pub fn get_media_metadata() -> Option<MediaMetadata> {
@@ -59,6 +61,11 @@ pub fn get_media_metadata() -> Option<MediaMetadata> {
                 .and_then(|title| title.as_str())
                 .map(String::from);
 
+            let thumbnail = metadata
+                .get(media::ART_URL_KEY)
+                .and_then(|art_url| art_url.as_str())
+                .map(String::from);
+
             let artist = if let Some(artist_variant) = metadata.get(media::ARTIST_KEY) {
                 match artist_variant {
                     dbus::arg::Variant(boxed_value) => {
@@ -86,8 +93,12 @@ pub fn get_media_metadata() -> Option<MediaMetadata> {
                 None
             };
 
-            if title.is_some() || artist.is_some() {
-                return Some(MediaMetadata { title, artist });
+            if title.is_some() || artist.is_some() || thumbnail.is_some() {
+                return Some(MediaMetadata {
+                    title,
+                    artist,
+                    thumbnail,
+                });
             }
         }
     }

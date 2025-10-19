@@ -24,10 +24,24 @@ enum WindowTitle {
     Mail,
     QQ,
     Chrome,
-    QQ音乐,
+    QQMusic,
     NetEaseMusic,
-    iTerm2,
+    ITerm2,
     Typora,
+    Firefox,
+    Spotify,
+    Slack,
+    Idea,
+    PyCharm,
+    GoLand,
+    CLion,
+    AndroidStudio,
+    RustRover,
+    SublimeText,
+    Atom,
+    LibreOffice,
+    VLC,
+    OBS,
     None,
 }
 
@@ -37,15 +51,29 @@ impl std::fmt::Display for WindowTitle {
             WindowTitle::Code => write!(f, "Code"),
             WindowTitle::WebStorm => write!(f, "WebStorm"),
             WindowTitle::Telegram => write!(f, "Telegram"),
+            WindowTitle::CLion => write!(f, "CLion"),
             WindowTitle::WeChat => write!(f, "WeChat"),
             WindowTitle::Discord => write!(f, "Discord"),
             WindowTitle::Mail => write!(f, "Mail"),
             WindowTitle::QQ => write!(f, "QQ"),
             WindowTitle::Chrome => write!(f, "Chrome"),
-            WindowTitle::QQ音乐 => write!(f, "QQ音乐"),
+            WindowTitle::QQMusic => write!(f, "QQ音乐"),
             WindowTitle::NetEaseMusic => write!(f, "NetEaseMusic"),
-            WindowTitle::iTerm2 => write!(f, "iTerm2"),
+            WindowTitle::ITerm2 => write!(f, "iTerm2"),
             WindowTitle::Typora => write!(f, "Typora"),
+            WindowTitle::Firefox => write!(f, "Firefox"),
+            WindowTitle::Spotify => write!(f, "Spotify"),
+            WindowTitle::Slack => write!(f, "Slack"),
+            WindowTitle::Idea => write!(f, "IDEA"),
+            WindowTitle::PyCharm => write!(f, "PyCharm"),
+            WindowTitle::GoLand => write!(f, "GoLand"),
+            WindowTitle::AndroidStudio => write!(f, "Android Studio"),
+            WindowTitle::RustRover => write!(f, "RustRover"),
+            WindowTitle::SublimeText => write!(f, "Sublime Text"),
+            WindowTitle::Atom => write!(f, "Atom"),
+            WindowTitle::LibreOffice => write!(f, "LibreOffice"),
+            WindowTitle::VLC => write!(f, "VLC"),
+            WindowTitle::OBS => write!(f, "OBS"),
             WindowTitle::None => write!(f, "None"),
         }
     }
@@ -65,12 +93,29 @@ impl WindowTitle {
             "google-chrome" => WindowTitle::Chrome,
             "chromium" => WindowTitle::Chrome,
             "thorium" => WindowTitle::Chrome,
-            "qqmusic" => WindowTitle::QQ音乐,
+            "firefox" => WindowTitle::Firefox,
+            "qqmusic" => WindowTitle::QQMusic,
             "music" => WindowTitle::NetEaseMusic,
             "yesplaymusic" => WindowTitle::NetEaseMusic,
-            "yakuake" => WindowTitle::iTerm2, // TODO: Can't get the title of Yakuake
-            "konsole" => WindowTitle::iTerm2, // TODO: Can't get the title of Konsole
+            "spotify" => WindowTitle::Spotify,
+            "yakuake" => WindowTitle::ITerm2, // TODO: Can't get the title of Yakuake
+            "konsole" => WindowTitle::ITerm2, // TODO: Can't get the title of Konsole
+            "gnome-terminal" => WindowTitle::ITerm2,
+            "kitty" => WindowTitle::ITerm2,
+            "alacritty" => WindowTitle::ITerm2,
             "typora" => WindowTitle::Typora,
+            "slack" => WindowTitle::Slack,
+            "jetbrains-idea" => WindowTitle::Idea,
+            "jetbrains-clion" => WindowTitle::CLion,
+            "jetbrains-pycharm" => WindowTitle::PyCharm,
+            "jetbrains-goland" => WindowTitle::GoLand,
+            "jetbrains-studio" => WindowTitle::AndroidStudio,
+            "jetbrains-rustrover" => WindowTitle::RustRover,
+            "sublime_text" => WindowTitle::SublimeText,
+            "atom" => WindowTitle::Atom,
+            "libreoffice" => WindowTitle::LibreOffice,
+            "vlc" => WindowTitle::VLC,
+            "obs" => WindowTitle::OBS,
             _ => WindowTitle::None,
         }
     }
@@ -78,6 +123,7 @@ impl WindowTitle {
 
 pub fn get_active_window_process_and_title() -> Result<String, Box<dyn Error>> {
     let mut failure_count = 0;
+    let max_attempts = 5; // 最大尝试次数
 
     loop {
         let xprop_output = Command::new("xprop")
@@ -100,10 +146,11 @@ pub fn get_active_window_process_and_title() -> Result<String, Box<dyn Error>> {
 
         if window_id.is_empty() {
             failure_count += 1;
-            if failure_count >= 3 {
-                thread::sleep(Duration::from_secs(1));
-                failure_count = 0;
+            if failure_count >= max_attempts {
+                println!("无法获取活动窗口，返回空字符串");
+                return Ok(String::new());
             }
+            thread::sleep(Duration::from_millis(200));
             continue;
         }
 
@@ -123,15 +170,21 @@ pub fn get_active_window_process_and_title() -> Result<String, Box<dyn Error>> {
                 let class_name = line.split('"').nth(1).unwrap_or("");
                 println!("class_name: {}", class_name);
                 let window_title_enum = WindowTitle::from_string(class_name);
+
+                // 如果是未知进程，直接返回空字符串而不是 "None"
+                if matches!(window_title_enum, WindowTitle::None) {
+                    return Ok(String::new());
+                }
+
                 return Ok(window_title_enum.to_string());
             }
         }
 
         failure_count += 1;
-        if failure_count >= 3 {
-            thread::sleep(Duration::from_secs(1));
-            println!("It seems that the window is not found or it's not a valid window (Terminal).");
-            failure_count = 0;
+        if failure_count >= max_attempts {
+            println!("达到最大尝试次数，返回空字符串");
+            return Ok(String::new());
         }
+        thread::sleep(Duration::from_millis(200));
     }
 }

@@ -68,7 +68,7 @@ fn read_config_values(config_path: &str) -> Result<UserConfig, Box<dyn Error>> {
     })
 }
 
-pub fn init() -> Result<(String, String, i64, bool, bool), Box<dyn Error>> {
+pub fn get_env_file() -> Result<(String, String, i64, bool, bool), Box<dyn Error>> {
     let matches = App::new("Process Report For Linux")
         .arg(
             Arg::with_name("config")

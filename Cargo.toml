@@ -1,6 +1,6 @@
 [package]
 name = "processforlinux"
-version = "1.1.2"
+version = "0.1.0"
 edition = "2021"
 authors = ["timochan <i@timochan.cn>"]
 
@@ -10,10 +10,11 @@ authors = ["timochan <i@timochan.cn>"]
 clap = "2.34.0"
 regex = "1.10.2"
 reqwest = "0.12"
-serde_json = "1.0"
+serde_json = "1.0.103"
 dbus = "0.7.1"
 tokio = { version = "1", features = ["full"] }
+zbus = { version = "3", features = ["blocking"] }
 chrono = "0.4.31"
 
 [profile.release]
-panic = 'abort'
+lto = true
