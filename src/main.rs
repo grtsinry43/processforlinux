@@ -134,6 +134,7 @@ async fn run_loop(config: Config, status_sender: Option<mpsc::Sender<status_wind
                 current_window: process_name.clone(),
                 window_status: window_status.clone(),
                 next_check_time,
+                watch_interval: config.watch_time,
                 media_title: media_metadata.title.clone().unwrap_or_default(),
                 media_artist: media_metadata.artist.clone().unwrap_or_default(),
                 media_thumbnail: media_metadata.thumbnail.clone().unwrap_or_default(),
