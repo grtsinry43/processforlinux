@@ -244,8 +244,8 @@ impl EguiOverlay for StatusWindow {
                         "无".to_string()
                     } else {
                         let name = &self.status.current_window;
-                        if name.len() > 18 {
-                            format!("{}...", &name[..15])
+                        if name.chars().count() > 18 {
+                            format!("{}...", name.chars().take(15).collect::<String>())
                         } else {
                             name.clone()
                         }
@@ -303,8 +303,8 @@ impl EguiOverlay for StatusWindow {
                                     .size(10.0)
                                     .color(egui::Color32::from_rgba_premultiplied(251, 146, 60, 220))
                             );
-                            let title = if self.status.media_title.len() > 22 {
-                                format!("{}...", &self.status.media_title[..19])
+                            let title = if self.status.media_title.chars().count() > 22 {
+                                format!("{}...", self.status.media_title.chars().take(19).collect::<String>())
                             } else {
                                 self.status.media_title.clone()
                             };
@@ -323,8 +323,8 @@ impl EguiOverlay for StatusWindow {
                                     .size(10.0)
                                     .color(egui::Color32::from_rgba_premultiplied(251, 146, 60, 180))
                             );
-                            let artist = if self.status.media_artist.len() > 22 {
-                                format!("{}...", &self.status.media_artist[..19])
+                            let artist = if self.status.media_artist.chars().count() > 22 {
+                                format!("{}...", self.status.media_artist.chars().take(19).collect::<String>())
                             } else {
                                 self.status.media_artist.clone()
                             };
